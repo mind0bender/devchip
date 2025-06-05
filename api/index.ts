@@ -3,6 +3,7 @@ import morgan from "morgan";
 import { pino, type Logger } from "pino";
 import PinoPretty, { type PrettyStream } from "pino-pretty";
 import express, { type Express, type Request, type Response } from "express";
+import imageToBase64 from "image-to-base64";
 
 const PORT: number = parseInt(process.env.PORT || "8080");
 
@@ -338,14 +339,22 @@ function generateMainDevChip({
       </svg>`;
 }
 
-app.get("/test.svg", (req: Request, res: Response): void => {
+app.get("/hello.svg", async (req: Request, res: Response): Promise<void> => {
   res.setHeader("Content-Type", "image/svg+xml");
   res.setHeader("Content-Security-Policy", "img-src data: *;");
   res.setHeader("Access-Control-Allow-Origin", "*");
-  // res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Cache-Control", "no-store");
+
+  const avatarURL: string =
+    "https://avatars.githubusercontent.com/u/87781848?v=4";
+
+  const avatarDataURL: string = `data:image/jpeg;base64,${await imageToBase64(
+    avatarURL
+  )}`;
+  logger.info(avatarDataURL);
 
   const svgString: string = generateMainDevChip({
-    avatar_url: "https://avatars.githubusercontent.com/u/87781848?v=4",
+    avatar_url: avatarDataURL,
     commits: 189,
     created_at: "29 Oct 2003",
     followers: 7,
