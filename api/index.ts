@@ -5,6 +5,8 @@ import PinoPretty, { type PrettyStream } from "pino-pretty";
 import express, { type Express, type Request, type Response } from "express";
 import imageToBase64 from "image-to-base64";
 import GitHub from "github-api";
+import type { Repo } from "./types";
+import type { AxiosResponse } from "axios";
 
 const PORT: number = parseInt(process.env.PORT || "8080");
 
@@ -90,7 +92,7 @@ function generateMainDevChip({
             </a>
             ${
               isPro
-                ? `<g transform="translate(${24 * username.length}, -10)">
+                ? `<g transform="translate(${24 * name.length}, -10)">
               <rect
                 x="-32"
                 y="-14"
@@ -340,11 +342,12 @@ function generateMainDevChip({
       </svg>`;
 }
 
-const gh = new GitHub({
-  username: "mind0bender",
-});
+const gh = new GitHub({});
 
-app.get("/hello.svg", async (req: Request, res: Response): Promise<void> => {
+const commits = await gh.getRepo("mind0bender", "tinkle").listCommits();
+console.log(commits.data.length);
+
+app.get("/profile.svg", async (req: Request, res: Response): Promise<void> => {
   res.setHeader("Content-Type", "image/svg+xml");
   res.setHeader("Content-Security-Policy", "img-src data: *;");
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -353,12 +356,6 @@ app.get("/hello.svg", async (req: Request, res: Response): Promise<void> => {
   const username = req.query["username"];
   const user = gh.getUser(username);
   const profile = await user.getProfile();
-  console.log(user);
-  console.log(profile.data);
-
-  // const avatar_url: string =
-  ("https://avatars.githubusercontent.com/u/87781848?v=4");
-
   const {
     avatar_url,
     followers,
@@ -368,6 +365,24 @@ app.get("/hello.svg", async (req: Request, res: Response): Promise<void> => {
     public_repos,
     login,
   } = profile.data;
+  // console.log(user);
+  // console.log(profile.data);
+
+  const reposRes: AxiosResponse<Repo[]> = await user.listRepos();
+  const repos: Repo[] = reposRes.data;
+  const ownRepos: Repo[] = repos.filter(
+    (repo: Repo): boolean => repo.owner.login === username
+  );
+  // for (let ownRepo of ownRepos) {
+  //   const repoName: string = ownRepo.name;
+  //   const repo = await gh.getRepo(login, repoName).listCommits();
+  // }
+  // console.log(repos[0]);
+  const starGazers: number = ownRepos.reduce<number>(
+    (accumulator: number, currRepo: Repo): number =>
+      accumulator + currRepo.stargazers_count,
+    0
+  );
 
   const avatarDataURL: string = `data:image/jpeg;base64,${await imageToBase64(
     avatar_url
@@ -381,7 +396,7 @@ app.get("/hello.svg", async (req: Request, res: Response): Promise<void> => {
     html_url,
     isPro: true,
     name,
-    starGazers: 17,
+    starGazers,
     total_repos: public_repos,
     username: login,
   });
