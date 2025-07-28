@@ -4,6 +4,7 @@ import { pino, type Logger } from "pino";
 import PinoPretty, { type PrettyStream } from "pino-pretty";
 import express, { type Express, type Request, type Response } from "express";
 import imageToBase64 from "image-to-base64";
+import GitHub from "github-api";
 
 const PORT: number = parseInt(process.env.PORT || "8080");
 
@@ -89,7 +90,7 @@ function generateMainDevChip({
             </a>
             ${
               isPro
-                ? `<g transform="translate(240, -10)">
+                ? `<g transform="translate(${24 * username.length}, -10)">
               <rect
                 x="-32"
                 y="-14"
@@ -339,31 +340,50 @@ function generateMainDevChip({
       </svg>`;
 }
 
+const gh = new GitHub({
+  username: "mind0bender",
+});
+
 app.get("/hello.svg", async (req: Request, res: Response): Promise<void> => {
   res.setHeader("Content-Type", "image/svg+xml");
   res.setHeader("Content-Security-Policy", "img-src data: *;");
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Cache-Control", "no-store");
 
-  const avatarURL: string =
-    "https://avatars.githubusercontent.com/u/87781848?v=4";
+  const username = req.query["username"];
+  const user = gh.getUser(username);
+  const profile = await user.getProfile();
+  console.log(user);
+  console.log(profile.data);
+
+  // const avatar_url: string =
+  ("https://avatars.githubusercontent.com/u/87781848?v=4");
+
+  const {
+    avatar_url,
+    followers,
+    html_url,
+    created_at,
+    name,
+    public_repos,
+    login,
+  } = profile.data;
 
   const avatarDataURL: string = `data:image/jpeg;base64,${await imageToBase64(
-    avatarURL
+    avatar_url
   )}`;
-  logger.info(avatarDataURL);
 
   const svgString: string = generateMainDevChip({
     avatar_url: avatarDataURL,
     commits: 189,
-    created_at: "29 Oct 2003",
-    followers: 7,
-    html_url: "https://github.com/mind0bender",
+    created_at,
+    followers,
+    html_url,
     isPro: true,
-    name: "Yash Gupta",
+    name,
     starGazers: 17,
-    total_repos: 38,
-    username: "mind0bender",
+    total_repos: public_repos,
+    username: login,
   });
   res.send(svgString);
 });
