@@ -12,15 +12,19 @@ import { ok } from "node:assert";
 import { config } from "@dotenvx/dotenvx";
 config();
 
+const prettyStream: PrettyStream = PinoPretty();
+const logger: Logger = pino({}, prettyStream);
+
 const PORT: number = parseInt(process.env.PORT || "8080");
 ok(process.env.GITHUB_TOKEN, "GITHUB_TOKEN is required.");
 ok(process.env.MONGO_URI, "MONGO_URI is required.");
 const GITHUB_TOKEN: string = process.env.GITHUB_TOKEN;
 const MONGO_URI: string = process.env.MONGO_URI;
 
-const prettyStream: PrettyStream = PinoPretty();
-
-const logger: Logger = pino({}, prettyStream);
+logger.info({
+  GITHUB_TOKEN,
+  MONGO_URI,
+});
 
 const app: Express = express();
 
@@ -520,6 +524,7 @@ async function dbConnect(): Promise<Mongoose> {
 
   if (!cached.promise) {
     cached.promise = connect(MONGO_URI, {
+      serverSelectionTimeoutMS: 50000,
       bufferCommands: false,
     }).then((mongoose) => {
       return mongoose;
