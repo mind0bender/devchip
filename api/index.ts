@@ -14,7 +14,9 @@ config();
 
 const PORT: number = parseInt(process.env.PORT || "8080");
 ok(process.env.GITHUB_TOKEN, "GITHUB_TOKEN is required.");
+ok(process.env.MONGO_URI, "MONGO_URI is required.");
 const GITHUB_TOKEN: string = process.env.GITHUB_TOKEN;
+const MONGO_URI: string = process.env.MONGO_URI;
 
 const prettyStream: PrettyStream = PinoPretty();
 
@@ -492,7 +494,7 @@ app.listen(PORT, async (): Promise<void> => {
   logger.info(`server running on http://localhost:${PORT}`);
   ok(process.env.MONGO_URI, "MONGO_URI is required");
   try {
-    const db: Mongoose = await connect(process.env.MONGO_URI);
+    const db: Mongoose = await dbConnect();
     db.connection.on("error", logger.error);
     logger.info(`database connection established.`);
   } catch (e: unknown) {
@@ -504,6 +506,35 @@ app.listen(PORT, async (): Promise<void> => {
 export default app;
 
 /** This section contains the database stuff */
+let cached: {
+  conn: Mongoose | null;
+  promise: Promise<Mongoose> | null;
+} = global.mongoose;
+
+if (!cached) {
+  cached = global.mongoose = { conn: null, promise: null };
+}
+
+async function dbConnect(): Promise<Mongoose> {
+  if (cached.conn) return cached.conn;
+
+  if (!cached.promise) {
+    cached.promise = connect(MONGO_URI, {
+      bufferCommands: false,
+    }).then((mongoose) => {
+      return mongoose;
+    });
+  }
+
+  try {
+    cached.conn = await cached.promise;
+  } catch (e) {
+    cached.promise = null;
+    throw e;
+  }
+
+  return cached.conn;
+}
 
 interface UserType extends Document {
   total_repos: number;
