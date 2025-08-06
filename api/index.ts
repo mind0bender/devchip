@@ -7,8 +7,14 @@ import imageToBase64 from "image-to-base64";
 import GitHub from "github-api";
 import type { Repo } from "./types";
 import type { AxiosResponse } from "axios";
+import { connect, Document, model, Mongoose, Schema } from "mongoose";
+import { ok } from "node:assert";
+import { config } from "@dotenvx/dotenvx";
+config();
 
 const PORT: number = parseInt(process.env.PORT || "8080");
+ok(process.env.GITHUB_TOKEN, "GITHUB_TOKEN is required.");
+const GITHUB_TOKEN: string = process.env.GITHUB_TOKEN;
 
 const prettyStream: PrettyStream = PinoPretty();
 
@@ -342,20 +348,22 @@ function generateMainDevChip({
       </svg>`;
 }
 
-const gh = new GitHub({});
+const gh = new GitHub({
+  token: GITHUB_TOKEN,
+});
 
 const commits = await gh.getRepo("mind0bender", "tinkle").listCommits();
 console.log(commits.data.length);
 
-app.get("/profile.svg", async (req: Request, res: Response): Promise<void> => {
-  res.setHeader("Content-Type", "image/svg+xml");
-  res.setHeader("Content-Security-Policy", "img-src data: *;");
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Cache-Control", "no-store");
+app.get("/", (req: Request, res: Response): void => {
+  res.json({
+    path: ["/profile.svg"],
+  });
+});
 
-  const username = req.query["username"];
-  const user = gh.getUser(username);
-  const profile = await user.getProfile();
+async function upadteUser(username: string): Promise<void> {
+  const ghUser = gh.getUser(username);
+  const profile = await ghUser.getProfile();
   const {
     avatar_url,
     followers,
@@ -368,43 +376,185 @@ app.get("/profile.svg", async (req: Request, res: Response): Promise<void> => {
   // console.log(user);
   // console.log(profile.data);
 
-  const reposRes: AxiosResponse<Repo[]> = await user.listRepos();
+  const reposRes: AxiosResponse<Repo[]> = await ghUser.listRepos();
   const repos: Repo[] = reposRes.data;
   const ownRepos: Repo[] = repos.filter(
     (repo: Repo): boolean => repo.owner.login === username
   );
-  // for (let ownRepo of ownRepos) {
-  //   const repoName: string = ownRepo.name;
-  //   const repo = await gh.getRepo(login, repoName).listCommits();
-  // }
-  // console.log(repos[0]);
+  let commit_count: number = 0;
+  for (let ownRepo of ownRepos) {
+    const repoName: string = ownRepo.name;
+    const commitResponses = await gh.getRepo(login, repoName).listCommits();
+    const commits = commitResponses.data;
+    let commitCountOwnRepo: number = 0;
+    for (let commit of commits) {
+      if (commit.author !== null) {
+        if (commit.author.login === username) {
+          commitCountOwnRepo++;
+        }
+      }
+    }
+    commit_count += commitCountOwnRepo;
+    // logger.info({ repoName, commitCountOwnRepo });
+  }
   const starGazers: number = ownRepos.reduce<number>(
     (accumulator: number, currRepo: Repo): number =>
       accumulator + currRepo.stargazers_count,
     0
   );
 
+  const userData = {
+    total_repos: public_repos,
+    star_gazers_count: starGazers,
+    commit_count,
+    avatar_url,
+    followers,
+    html_url,
+    created_at,
+    name,
+    username,
+  };
+
+  // logger.info(userData);
+
+  let user: UserType | null = await User.findOneAndUpdate(
+    {
+      username,
+    },
+    userData
+  );
+
+  if (!user) {
+    const newUser: UserType = new User(userData);
+    try {
+      await newUser.save();
+      logger.info(`profile updated for user ${username}`);
+      return;
+    } catch (e: unknown) {
+      logger.error(e);
+      throw e;
+    }
+  }
+}
+
+app.get("/profile.svg", async (req: Request, res: Response): Promise<void> => {
+  const username: string | undefined = req.query["username"] as
+    | string
+    | undefined;
+
+  if (!username) {
+    res.send({
+      status: false,
+      message: "username is required",
+    });
+    return;
+  }
+
+  const user: UserType | null = await User.findOne({
+    username,
+  });
+
+  // console.log(user);
+
+  upadteUser(username);
+  if (!user) {
+    res.send({
+      success: false,
+      message: `user needs to be fetched for the first time.`,
+    });
+    return;
+  }
   const avatarDataURL: string = `data:image/jpeg;base64,${await imageToBase64(
-    avatar_url
+    user.avatar_url
   )}`;
 
   const svgString: string = generateMainDevChip({
     avatar_url: avatarDataURL,
-    commits: 189,
-    created_at,
-    followers,
-    html_url,
+    commits: user.commit_count,
+    created_at: user.created_at,
+    followers: user.followers,
+    html_url: user.html_url,
     isPro: true,
-    name,
-    starGazers,
-    total_repos: public_repos,
-    username: login,
+    name: user.name,
+    starGazers: user.star_gazers_count,
+    total_repos: user.total_repos,
+    username: user.username,
   });
+  res.setHeader("Content-Type", "image/svg+xml");
+  res.setHeader("Content-Security-Policy", "img-src data: *;");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Cache-Control", "no-store");
+
   res.send(svgString);
 });
 
-app.listen(PORT, (): void => {
+app.listen(PORT, async (): Promise<void> => {
   logger.info(`server running on http://localhost:${PORT}`);
+  ok(process.env.MONGO_URI, "MONGO_URI is required");
+  try {
+    const db: Mongoose = await connect(process.env.MONGO_URI);
+    db.connection.on("error", logger.error);
+    logger.info(`database connection established.`);
+  } catch (e: unknown) {
+    logger.error(`failed to connect to the database.`);
+    console.error(e);
+  }
 });
 
 export default app;
+
+/** This section contains the database stuff */
+
+interface UserType extends Document {
+  total_repos: number;
+  star_gazers_count: number;
+  commit_count: number;
+  avatar_url: string;
+  followers: number;
+  html_url: string;
+  created_at: string;
+  name: string;
+  username: string;
+}
+
+const UserSchema: Schema<UserType> = new Schema<UserType>({
+  total_repos: {
+    required: true,
+    type: Number,
+  },
+  star_gazers_count: {
+    required: true,
+    type: Number,
+  },
+  commit_count: {
+    required: true,
+    type: Number,
+  },
+  avatar_url: {
+    required: true,
+    type: String,
+  },
+  followers: {
+    required: true,
+    type: Number,
+  },
+  html_url: {
+    required: true,
+    type: String,
+  },
+  created_at: {
+    required: true,
+    type: String,
+  },
+  name: {
+    required: true,
+    type: String,
+  },
+  username: {
+    required: true,
+    type: String,
+    unique: true,
+  },
+});
+
+const User = model("User", UserSchema);
