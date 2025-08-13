@@ -4,14 +4,16 @@ import generateProfileSVG from "./generator";
 import { connectDB } from "../../../../lib/db";
 
 interface RouteParams {
-  params: {
-    username: string;
-  };
+  username: string;
 }
 
 export async function GET(
   req: NextRequest,
-  { params }: RouteParams
+  {
+    params,
+  }: {
+    params: Promise<RouteParams>;
+  }
 ): Promise<Response> {
   const username: string = (await params).username;
   await connectDB();
