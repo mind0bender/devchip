@@ -1,6 +1,7 @@
+import imageToBase64 from "@/lib/helpers/img2base64";
 import { UserType } from "../../../../db/models/user";
 
-export default function generateProfileSVG({
+export default async function generateProfileSVG({
   html_url,
   avatar_url,
   name,
@@ -10,7 +11,8 @@ export default function generateProfileSVG({
   star_gazers_count,
   created_at,
   commit_count,
-}: UserType): string {
+}: UserType): Promise<string> {
+  const base64image: string = await imageToBase64(avatar_url);
   return `<svg
         xmlns="http://www.w3.org/2000/svg"
         fill="none"
@@ -38,7 +40,7 @@ export default function generateProfileSVG({
             cy="80" />
           <a target="_blank" href="${html_url}">
             <image
-              href="${avatar_url}"
+              href="${base64image}"
               rx="100%"
               ry="100%"
               clip-path="url(#dp-clipper)"

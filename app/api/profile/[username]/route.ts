@@ -23,7 +23,7 @@ export async function GET(
   if (!user) {
     return new Response("not found");
   }
-  const svg: string = generateProfileSVG(user);
+  const svg: string = await generateProfileSVG(user);
 
   return new Response(svg, {
     status: 200,
