@@ -1,6 +1,6 @@
-import { type Document, type Model, model, Schema } from "mongoose";
+import { type Document, type Model, model, models, Schema } from "mongoose";
 
-export interface User extends Document {
+export interface UserType extends Document {
   name: string;
   username: string;
   avatar_url: string;
@@ -12,7 +12,7 @@ export interface User extends Document {
   created_at: Date;
 }
 
-const UserSchema = new Schema<User>({
+const UserSchema = new Schema<UserType>({
   name: String,
   username: {
     type: String,
@@ -30,4 +30,6 @@ const UserSchema = new Schema<User>({
   created_at: Number,
 });
 
-const User: Model<User> = model<User>("User", UserSchema);
+const User: Model<UserType> =
+  models.User || model<UserType>("User", UserSchema);
+export default User;
