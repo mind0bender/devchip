@@ -19,9 +19,13 @@ const cached: {
 
 export async function connectDB(): Promise<Mongoose> {
   if (cached.conn) return cached.conn;
+  // queries throw if db not connected
+  // max pool size is 1(since serverless functions need just one connection)
   if (!cached.promise) {
     cached.promise = connect(MONGO_URI, {
       bufferCommands: false,
+      maxPoolSize: 1,
+      serverSelectionTimeoutMS: 5000,
     });
   }
   cached.conn = await cached.promise;
