@@ -10,6 +10,7 @@ export interface UserType extends Document {
   followers: number;
   star_gazers_count: number;
   created_at: Date;
+  contribution_count: number;
 }
 
 const UserSchema = new Schema<UserType>({
@@ -28,6 +29,7 @@ const UserSchema = new Schema<UserType>({
   followers: Number,
   star_gazers_count: Number,
   created_at: Number,
+  contribution_count: Number,
 });
 
 const User: Model<UserType> =

@@ -1,7 +1,7 @@
 import { ok } from "assert";
 import { connect, Mongoose } from "mongoose";
 
-const MONGO_URI = process.env.MONGO_URI as string;
+const MONGO_URI: string = process.env.MONGO_URI as string;
 
 ok(MONGO_URI, "MONGO_URI is required.");
 
@@ -28,8 +28,13 @@ export async function connectDB(): Promise<Mongoose> {
       serverSelectionTimeoutMS: 5000,
     });
   }
-  cached.conn = await cached.promise;
-  return cached.conn;
+  try {
+    cached.conn = await cached.promise;
+    return cached.conn;
+  } catch (e: unknown) {
+    console.error(e);
+    throw new Error("Unable to connect to Database.");
+  }
 }
 
 (

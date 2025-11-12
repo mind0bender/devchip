@@ -11,6 +11,7 @@ export default async function generateProfileSVG({
   star_gazers_count,
   created_at,
   commit_count,
+  contribution_count,
 }: UserType): Promise<string> {
   const base64image: string = await imageToBase64(avatar_url);
   return `<svg
@@ -268,14 +269,48 @@ export default async function generateProfileSVG({
             </g>
             <text
               font-family="monospace"
-              font-weight="bold"
+              font-weight="bold450"
               x="20"
               y="88"
               font-size="40"
               fill="#ccc">
-              473
+              ${contribution_count}
             </text>
           </g>
         </g>
       </svg>`;
+}
+
+export function generateUserDoesNotExist(username: string): string {
+  return `<svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            width="800"
+            height="334">
+            <rect
+            fill="#010409"
+            width="100%"
+            height="100%"
+            stroke="#3d444d"
+            rx="20"
+            ry="20" />
+          <!-- Error Icon (A larger, more stylized 'X' within a circle) -->
+          <circle cx="50" cy="60" r="35" fill="#c0392b" stroke="#e74c3c" stroke-width="4"/>
+          <line x1="30" y1="40" x2="70" y2="80" stroke="#ffffff" stroke-width="8" stroke-linecap="round"/>
+          <line x1="70" y1="40" x2="30" y2="80" stroke="#ffffff" stroke-width="8" stroke-linecap="round"/>
+          
+          <!-- Text Message -->
+          <text
+          x="105"
+          y="75"
+          font-family="Inter, sans-serif"
+          font-size="36"
+          fill="#ecf0f1"
+          letter-spacing="1"
+          >
+          user ${username} does not exist
+          </text>
+          </svg>`;
 }

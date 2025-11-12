@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import User, { UserType } from "../../../../db/models/user";
-import generateProfileSVG from "./generator";
+import generateProfileSVG, { generateUserDoesNotExist } from "./generator";
 import { connectDB } from "../../../../lib/db";
 import { cache } from "react";
+import fetchUserByUsername from "./fetch";
 
 interface RouteParams {
   username: string;
@@ -10,13 +11,32 @@ interface RouteParams {
 
 const getProfileCard: (username: string) => Promise<string> = cache(
   async (username: string): Promise<string> => {
-    await connectDB();
-    const user: UserType | null = await User.findOne({
-      username,
-    });
-    if (!user) throw Error("User not found");
-    const profileCard: string = await generateProfileSVG(user);
-    return profileCard;
+    try {
+      await connectDB();
+      // also start a user update while updating in background.
+      try {
+        fetchUserByUsername(username);
+      } catch (e: unknown) {
+        // if (e instanceof Error) console.error("lol");
+      }
+      try {
+        const user: UserType | null = await User.findOne({
+          username,
+        });
+        if (!user) throw Error("User not found");
+        if (user.commit_count < 0) {
+          // user does not exist
+          return generateUserDoesNotExist(username);
+        }
+        const profileCard: string = await generateProfileSVG(user);
+        return profileCard;
+      } catch (e: unknown) {
+        console.error(e);
+        throw new Error("Unable to fetch User from DB");
+      }
+    } catch (e: unknown) {
+      throw e;
+    }
   }
 );
 
@@ -44,12 +64,14 @@ export async function GET(
       },
     });
   } catch (e: unknown) {
-    return new NextResponse("User not found", {
-      status: 404,
-    });
+    if (e instanceof Error) {
+      return new NextResponse(e.message, {
+        status: 404,
+      });
+    } else {
+      return new NextResponse("Unknown Server Error", {
+        status: 500,
+      });
+    }
   }
-}
-
-export async function POST(req: NextRequest): Promise<Response> {
-  return new Response();
 }

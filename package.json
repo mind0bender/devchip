@@ -9,10 +9,13 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@octokit/core": "^7.0.5",
+    "@octokit/rest": "^22.0.0",
     "axios": "^1.11.0",
     "github-api": "^3.4.0",
     "mongoose": "^8.17.1",
     "next": "15.4.6",
+    "octokit": "^5.0.4",
     "react": "19.1.0",
     "react-dom": "19.1.0"
   },
