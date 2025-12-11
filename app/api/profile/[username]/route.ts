@@ -14,7 +14,9 @@ const getProfileCard: (username: string) => Promise<string> = cache(
     try {
       await connectDB();
       // also start a user update while updating in background.
+      console.log("Starting background fetch for ", username);
       try {
+        console.log(`Fetching user ${username} in background`);
         fetchUserByUsername(username);
       } catch (e: unknown) {
         // if (e instanceof Error) console.error("lol");

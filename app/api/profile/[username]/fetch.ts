@@ -19,6 +19,8 @@ export default async function fetchUserByUsername(
     let totalStars: number = 0;
     let commitCount: number = 0;
 
+    console.log(`Fetching ${repos.length} repos for user ${username}`);
+    let doneRepoCount: number = 0;
     for (const repo of repos) {
       totalStars += repo.stargazers_count || 0;
 
@@ -36,7 +38,12 @@ export default async function fetchUserByUsername(
           // Skip repos with no access or large commit history
         }
       }
+      doneRepoCount++;
+      if (doneRepoCount % 10 === 0) {
+        console.log(`Processed ${doneRepoCount} / ${repos.length} repos`);
+      }
     }
+    console.log(`Fetched all(${repos.length}) repos for user ${username}`);
 
     const query = `
     query ($login: String!) {
